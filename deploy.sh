@@ -13,12 +13,6 @@ if git diff HEAD~1 --name-only | grep -q "package.json"; then
     npm install
 fi
 
-# Install localtunnel globally if not installed
-if ! command -v lt &> /dev/null; then
-    echo "🌐 Installing LocalTunnel..."
-    npm install -g localtunnel
-fi
-
 # Register commands if commands.js changed
 if git diff HEAD~1 --name-only | grep -q "src/commands.js"; then
     echo "🔧 Registering slash commands..."
@@ -27,6 +21,19 @@ fi
 
 # Create logs directory if it doesn't exist
 mkdir -p logs
+
+# Stop and remove any old tunnel services
+if pm2 list | grep -q "localtunnel"; then
+    echo "🧹 Cleaning up old tunnel service..."
+    pm2 stop localtunnel
+    pm2 delete localtunnel
+fi
+
+if pm2 list | grep -q "ngrok-tunnel"; then
+    echo "🧹 Cleaning up old ngrok tunnel..."
+    pm2 stop ngrok-tunnel
+    pm2 delete ngrok-tunnel
+fi
 
 # Check if bot is already running
 if pm2 list | grep -q "bloodkeeper-bot"; then
@@ -38,30 +45,27 @@ else
     pm2 save
 fi
 
-# Start or restart LocalTunnel
-echo "🌐 Setting up HTTPS tunnel..."
-if pm2 list | grep -q "localtunnel"; then
-    echo "🔄 Restarting tunnel..."
-    pm2 restart localtunnel
-else
-    echo "🌐 Starting new tunnel..."
-    pm2 start --name localtunnel "lt --port 3000 --subdomain bloodkeeper"
-    pm2 save
-fi
-
-# Wait a moment for tunnel to establish
+# Wait a moment for bot to start
 sleep 3
 
-# Show the tunnel URL
+# Get the public IP
+PUBLIC_IP=$(curl -s ifconfig.me)
+
+# Show the endpoints
 echo ""
 echo "🎉 Deployment complete!"
-echo "🔗 Your HTTPS endpoint: https://bloodkeeper.loca.lt"
+echo "🌐 Public IP: $PUBLIC_IP"
+echo "🔗 HTTP endpoint: http://$PUBLIC_IP:3000/interactions"
+echo "🔒 HTTPS endpoint: https://$PUBLIC_IP:8443/interactions"
+echo ""
 echo "📋 Set this URL in Discord Developer Portal as interactions endpoint:"
-echo "   https://bloodkeeper.loca.lt/interactions"
+echo "   https://$PUBLIC_IP:8443/interactions"
+echo ""
+echo "⚠️  Make sure port 8443 is open in Oracle Cloud Security List!"
 echo ""
 
 # Show status
 pm2 status
 echo ""
 echo "📊 Recent logs:"
-pm2 logs bloodkeeper-bot --lines 5
+pm2 logs bloodkeeper-bot --lines 10
