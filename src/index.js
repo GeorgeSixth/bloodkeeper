@@ -25,7 +25,7 @@ commands.forEach(command => {
 });
 
 client.once('ready', async () => {
-  console.log(`✅ ${client.user.tag} is online and tracking blood levels!`);  
+  console.log(`✅ ${client.user.tag} is online and tracking blood levels!`);
   try {
     await bloodTracker.initializeDatabase();
     console.log(`📊 Current blood level: ${await bloodTracker.getCurrentBloodLevel()}`);
@@ -66,7 +66,7 @@ client.on('messageCreate', async (message) => {
     response += `**New city blood level**: ${newBloodLevel}`;
     
     if (wasReset) {
-      response += `\n✨ **Monthly reset occurred** - Blood level was restored to 200.`;
+      response += `\n✨ **Monthly reset occurred** - Blood level was restored to 100.`;
     }
     
     if (newBloodLevel === 0) {
@@ -143,7 +143,7 @@ cron.schedule('0 0 1 * *', async () => {
     // Optionally notify in the channel
     const channel = client.channels.cache.get(process.env.BLOOD_CHANNEL_ID);
     if (channel) {
-      await channel.send('🗓️ **Monthly Reset**: City blood level has been restored to 200!');
+      await channel.send('🗓️ **Monthly Reset**: City blood level has been restored to 100!');
     }
   }
 });
