@@ -12,6 +12,15 @@ export class BloodTracker {
   }
 
   async initializeDatabase() {
+    // Create data directory if it doesn't exist
+    const path = await import('path');
+    const fs = await import('fs');
+    const dataDir = path.dirname(this.dbPath);
+    
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
     return new Promise((resolve, reject) => {
       this.db = new sqlite3.Database(this.dbPath, (err) => {
         if (err) {
@@ -75,6 +84,10 @@ export class BloodTracker {
   }
 
   async getCurrentBloodLevel() {
+    if (!this.db) {
+      throw new Error('Database not initialized. Call initializeDatabase() first.');
+    }
+    
     return new Promise((resolve, reject) => {
       this.db.get(
         "SELECT level FROM blood_level ORDER BY id DESC LIMIT 1",
@@ -87,6 +100,10 @@ export class BloodTracker {
   }
 
   async setBloodLevel(amount) {
+    if (!this.db) {
+      throw new Error('Database not initialized. Call initializeDatabase() first.');
+    }
+    
     return new Promise((resolve, reject) => {
       this.db.run(
         "INSERT INTO blood_level (level, last_reset) VALUES (?, ?)",

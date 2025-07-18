@@ -26,10 +26,16 @@ commands.forEach(command => {
 
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} is online and tracking blood levels!`);
-  console.log(`📊 Current blood level: ${await bloodTracker.getCurrentBloodLevel()}`);
   
-  // Initialize database
-  await bloodTracker.initializeDatabase();
+  // Initialize database FIRST
+  try {
+    await bloodTracker.initializeDatabase();
+    console.log(`📊 Current blood level: ${await bloodTracker.getCurrentBloodLevel()}`);
+    console.log('🗄️ Database initialized successfully');
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+    process.exit(1);
+  }
 });
 
 client.on('messageCreate', async (message) => {
@@ -40,12 +46,14 @@ client.on('messageCreate', async (message) => {
   if (message.author.id !== process.env.TZIMISCE_BOT_ID) return;
   if (message.channel.id !== process.env.BLOOD_CHANNEL_ID) return;
   
-  console.log(`📥 Processing message from Tzimisce: ${message.content}`);
+  console.log(`📥 Processing message from Tzimisce`);
   
+  // Note: Without MESSAGE_CONTENT_INTENT, message.content will be empty
+  // We'll need to rely on embeds only
   const result = await bloodTracker.processRollMessage({
     author: { id: message.author.id },
     channel_id: message.channel.id,
-    content: message.content,
+    content: message.content || '', // Will be empty without MESSAGE_CONTENT_INTENT
     embeds: message.embeds.map(embed => ({
       description: embed.description,
       fields: embed.fields.map(field => ({
