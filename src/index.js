@@ -83,9 +83,12 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
+  console.log(`🔍 Interaction received: ${interaction.type}, isChatInputCommand: ${interaction.isChatInputCommand()}`);
+  
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
+  console.log(`📥 Received command: /${commandName}`);
 
   try {
     if (commandName === 'ping') {
