@@ -90,14 +90,10 @@ client.on('interactionCreate', async (interaction) => {
   try {
     if (commandName === 'ping') {
       await interaction.reply('Pong! 🏓');
-    }
-
-    if (commandName === 'bloodlevel') {
+    } else if (commandName === 'bloodlevel') {
       const currentLevel = await bloodTracker.getCurrentBloodLevel();
       await interaction.reply(`🩸 **City Blood Level**: ${currentLevel}`);
-    }
-
-    if (commandName === 'setblood') {
+    } else if (commandName === 'setblood') {
       // Check if user has admin permissions
       if (!interaction.member.permissions.has('Administrator')) {
         await interaction.reply({ content: '❌ You need administrator permissions to use this command.', ephemeral: true });
@@ -107,9 +103,7 @@ client.on('interactionCreate', async (interaction) => {
       const amount = interaction.options.getInteger('amount');
       await bloodTracker.setBloodLevel(amount);
       await interaction.reply(`🩸 Blood level set to ${amount}`);
-    }
-
-    if (commandName === 'bloodhistory') {
+    } else if (commandName === 'bloodhistory') {
       const history = await bloodTracker.getBloodHistory(10);
       if (history.length === 0) {
         await interaction.reply('📊 No blood consumption history found.');
