@@ -26,8 +26,16 @@ commands.forEach(command => {
 
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} is online and tracking blood levels!`);
+  console.log(`🤖 Bot ID: ${client.user.id}`);
+  console.log(`📱 Application ID from env: ${process.env.DISCORD_APPLICATION_ID}`);
   
-  // Initialize database FIRST
+  // Check if IDs match
+  if (client.user.id !== process.env.DISCORD_APPLICATION_ID) {
+    console.error('❌ MISMATCH: Bot ID does not match Application ID!');
+    console.error('This means your bot token belongs to a different application.');
+  }
+  
+  // Initialize database...
   try {
     await bloodTracker.initializeDatabase();
     console.log(`📊 Current blood level: ${await bloodTracker.getCurrentBloodLevel()}`);
