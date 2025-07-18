@@ -77,17 +77,29 @@ app.get('/', (req, res) => {
 });
 
 // HTTP server middleware for Discord interactions
-app.use('/interactions', express.json());
+app.use('/interactions', express.raw({type: 'application/json'}));
 
 // Handle Discord interactions via HTTP/HTTPS
 app.post('/interactions', async (req, res) => {
   try {
-    const { type, data } = req.body;
+    // Parse JSON safely
+    let body;
+    try {
+      const rawBody = req.body.toString('utf8');
+      console.log(`🔍 Raw body received: "${rawBody}"`);
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error('❌ JSON Parse Error:', parseError.message);
+      console.log(`🔍 Raw body that failed: "${req.body.toString('utf8')}"`);
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
+
+    const { type, data } = body;
     
     // Log the full request for debugging Discord verification
     console.log(`🔍 HTTPS INTERACTION: Type: ${type}, Command: ${data?.name || 'none'}`);
     console.log(`🔍 Headers:`, JSON.stringify(req.headers, null, 2));
-    console.log(`🔍 Body:`, JSON.stringify(req.body, null, 2));
+    console.log(`🔍 Parsed Body:`, JSON.stringify(body, null, 2));
 
     // Respond to Discord's ping with exact format Discord expects
     if (type === 1) {
