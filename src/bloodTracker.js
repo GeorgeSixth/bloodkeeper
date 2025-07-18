@@ -136,8 +136,7 @@ export class BloodTracker {
     const now = new Date();
     
     // Check if a month has passed
-    const monthsDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + 
-                      (now.getMonth() - lastReset.getMonth());
+    const monthsDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + (now.getMonth() - lastReset.getMonth());
     
     if (monthsDiff >= 1) {
       await this.setBloodLevel(100); // Reset to default
