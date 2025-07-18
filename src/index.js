@@ -169,8 +169,8 @@ async function startServers() {
 
     https.createServer(httpsOptions, app).listen(HTTPS_PORT, '0.0.0.0', () => {
       console.log(`🔒 HTTPS server running on port ${HTTPS_PORT}`);
-      console.log(`🔗 Public HTTPS endpoint: https://${publicIP}:${HTTPS_PORT}/interactions`);
-      console.log(`📋 Set this URL in Discord Developer Portal: https://${publicIP}:${HTTPS_PORT}/interactions`);
+      console.log(`🔗 Public HTTPS endpoint: https://${publicIP || '89.168.60.67'}:${HTTPS_PORT}/interactions`);
+      console.log(`📋 Set this URL in Discord Developer Portal: https://${publicIP || '89.168.60.67'}:${HTTPS_PORT}/interactions`);
     });
 
   } catch (error) {
