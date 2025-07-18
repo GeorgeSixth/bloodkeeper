@@ -84,12 +84,17 @@ app.post('/interactions', async (req, res) => {
   try {
     const { type, data } = req.body;
     
+    // Log the full request for debugging Discord verification
     console.log(`🔍 HTTPS INTERACTION: Type: ${type}, Command: ${data?.name || 'none'}`);
+    console.log(`🔍 Headers:`, JSON.stringify(req.headers, null, 2));
+    console.log(`🔍 Body:`, JSON.stringify(req.body, null, 2));
 
-    // Respond to Discord's ping
+    // Respond to Discord's ping with exact format Discord expects
     if (type === 1) {
-      console.log('🏓 Discord ping received via HTTPS');
-      return res.send({ type: 1 });
+      console.log('🏓 Discord ping received via HTTPS - sending pong');
+      const response = { type: 1 };
+      console.log('🏓 Sending response:', JSON.stringify(response));
+      return res.status(200).json(response);
     }
 
     // Handle slash commands
@@ -99,14 +104,14 @@ app.post('/interactions', async (req, res) => {
 
       if (commandName === 'ping') {
         console.log('🏓 Executing ping via HTTPS...');
-        return res.send({
+        return res.status(200).json({
           type: 4,
           data: { content: 'Pong! 🏓 (via HTTPS with self-signed cert)' }
         });
       } else if (commandName === 'bloodlevel') {
         console.log('🩸 Executing bloodlevel via HTTPS...');
         const currentLevel = await bloodTracker.getCurrentBloodLevel();
-        return res.send({
+        return res.status(200).json({
           type: 4,
           data: { content: `🩸 **City Blood Level**: ${currentLevel}` }
         });
@@ -115,7 +120,7 @@ app.post('/interactions', async (req, res) => {
         const amount = data.options.find(opt => opt.name === 'amount')?.value;
         if (amount !== undefined) {
           await bloodTracker.setBloodLevel(amount);
-          return res.send({
+          return res.status(200).json({
             type: 4,
             data: { content: `🩸 Blood level set to ${amount}` }
           });
@@ -124,7 +129,7 @@ app.post('/interactions', async (req, res) => {
         console.log('📊 Executing bloodhistory via HTTPS...');
         const history = await bloodTracker.getBloodHistory(10);
         if (history.length === 0) {
-          return res.send({
+          return res.status(200).json({
             type: 4,
             data: { content: '📊 No blood consumption history found.' }
           });
@@ -136,17 +141,18 @@ app.post('/interactions', async (req, res) => {
           response += `• ${date}: -${entry.successes} (Level: ${entry.blood_level})\n`;
         });
         
-        return res.send({
+        return res.status(200).json({
           type: 4,
           data: { content: response }
         });
       }
     }
 
-    return res.status(400).send('Unknown interaction type');
+    console.log(`❓ Unknown interaction type: ${type}`);
+    return res.status(400).json({ error: 'Unknown interaction type' });
   } catch (error) {
     console.error('❌ ERROR in HTTPS interaction handler:', error);
-    return res.status(500).send('Internal server error');
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
