@@ -1,4 +1,6 @@
+import { config } from 'dotenv';
 import { commands } from './commands.js';
+config();
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const applicationId = process.env.DISCORD_APPLICATION_ID;
