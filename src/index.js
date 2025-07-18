@@ -67,7 +67,7 @@ async function createSelfSignedCert() {
 
 // HTTP and HTTPS server setup
 const HTTP_PORT = 3000;
-const HTTPS_PORT = 443;
+const HTTPS_PORT = 8443; // Use port 8443 instead of 443 (no sudo required)
 
 console.log('🌐 Setting up HTTP/HTTPS servers...');
 
