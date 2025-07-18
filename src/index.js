@@ -2,13 +2,19 @@ import { Client, GatewayIntentBits, Collection } from 'discord.js';
 import { config } from 'dotenv';
 import cron from 'node-cron';
 import express from 'express';
+import https from 'https';
+import fs from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { BloodTracker } from './bloodTracker.js';
 import { commands } from './commands.js';
+
+const execAsync = promisify(exec);
 
 // Load environment variables
 config();
 
-console.log('🚀 Starting Bloodkeeper Bot...');
+console.log('🚀 Starting Bloodkeeper Bot with HTTPS...');
 
 const app = express();
 const client = new Client({
@@ -28,59 +34,84 @@ commands.forEach(command => {
   client.commands.set(command.name, command);
 });
 
-// Start HTTP server FIRST (before Discord connection)
-const PORT = process.env.PORT || 3000;
+// Function to create self-signed certificate
+async function createSelfSignedCert() {
+  try {
+    // Check if certificates already exist
+    if (fs.existsSync('./certs/server.key') && fs.existsSync('./certs/server.crt')) {
+      console.log('📜 SSL certificates found');
+      return;
+    }
 
-console.log('🌐 Setting up HTTP server...');
+    console.log('🔐 Creating self-signed SSL certificate...');
+    
+    // Create certs directory
+    if (!fs.existsSync('./certs')) {
+      fs.mkdirSync('./certs');
+    }
+
+    // Get public IP for certificate
+    const { stdout: publicIP } = await execAsync('curl -s ifconfig.me');
+    console.log(`🌐 Public IP: ${publicIP.trim()}`);
+
+    // Create self-signed certificate valid for the public IP
+    await execAsync(`openssl req -nodes -new -x509 -keyout ./certs/server.key -out ./certs/server.crt -days 365 -subj "/C=US/ST=State/L=City/O=Organization/CN=${publicIP.trim()}"`);
+    
+    console.log('✅ SSL certificate created for IP:', publicIP.trim());
+    return publicIP.trim();
+  } catch (error) {
+    console.error('❌ Error creating SSL certificate:', error);
+    throw error;
+  }
+}
+
+// HTTP and HTTPS server setup
+const HTTP_PORT = 3000;
+const HTTPS_PORT = 443;
+
+console.log('🌐 Setting up HTTP/HTTPS servers...');
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.send('Bloodkeeper Bot is running! 🩸');
+  res.send('Bloodkeeper Bot is running with HTTPS! 🩸🔒');
 });
-
-// Simple verification function (without external dependency for now)
-function verifyDiscordRequest(body, signature, timestamp, publicKey) {
-  // For now, let's bypass verification to test if the server works
-  // TODO: Add proper verification later
-  return true;
-}
 
 // HTTP server middleware for Discord interactions
 app.use('/interactions', express.json());
 
-// Handle Discord interactions via HTTP
+// Handle Discord interactions via HTTP/HTTPS
 app.post('/interactions', async (req, res) => {
   try {
     const { type, data } = req.body;
     
-    console.log(`🔍 HTTP INTERACTION: Type: ${type}, Command: ${data?.name || 'none'}`);
+    console.log(`🔍 HTTPS INTERACTION: Type: ${type}, Command: ${data?.name || 'none'}`);
 
     // Respond to Discord's ping
     if (type === 1) {
-      console.log('🏓 Discord ping received via HTTP');
+      console.log('🏓 Discord ping received via HTTPS');
       return res.send({ type: 1 });
     }
 
     // Handle slash commands
     if (type === 2) {
       const commandName = data.name;
-      console.log(`📥 Processing HTTP command: /${commandName}`);
+      console.log(`📥 Processing HTTPS command: /${commandName}`);
 
       if (commandName === 'ping') {
-        console.log('🏓 Executing ping via HTTP...');
+        console.log('🏓 Executing ping via HTTPS...');
         return res.send({
           type: 4,
-          data: { content: 'Pong! 🏓 (via HTTPS tunnel)' }
+          data: { content: 'Pong! 🏓 (via HTTPS with self-signed cert)' }
         });
       } else if (commandName === 'bloodlevel') {
-        console.log('🩸 Executing bloodlevel via HTTP...');
+        console.log('🩸 Executing bloodlevel via HTTPS...');
         const currentLevel = await bloodTracker.getCurrentBloodLevel();
         return res.send({
           type: 4,
           data: { content: `🩸 **City Blood Level**: ${currentLevel}` }
         });
       } else if (commandName === 'setblood') {
-        console.log('🔧 Executing setblood via HTTP...');
+        console.log('🔧 Executing setblood via HTTPS...');
         const amount = data.options.find(opt => opt.name === 'amount')?.value;
         if (amount !== undefined) {
           await bloodTracker.setBloodLevel(amount);
@@ -90,7 +121,7 @@ app.post('/interactions', async (req, res) => {
           });
         }
       } else if (commandName === 'bloodhistory') {
-        console.log('📊 Executing bloodhistory via HTTP...');
+        console.log('📊 Executing bloodhistory via HTTPS...');
         const history = await bloodTracker.getBloodHistory(10);
         if (history.length === 0) {
           return res.send({
@@ -114,31 +145,39 @@ app.post('/interactions', async (req, res) => {
 
     return res.status(400).send('Unknown interaction type');
   } catch (error) {
-    console.error('❌ ERROR in HTTP interaction handler:', error);
+    console.error('❌ ERROR in HTTPS interaction handler:', error);
     return res.status(500).send('Internal server error');
   }
 });
 
-// Start HTTP server with better error handling
-console.log(`🌐 Attempting to start HTTP server on port ${PORT}...`);
+// Start servers
+async function startServers() {
+  try {
+    const publicIP = await createSelfSignedCert();
+    
+    // Start HTTP server (for local testing)
+    app.listen(HTTP_PORT, '0.0.0.0', () => {
+      console.log(`🌐 HTTP server running on port ${HTTP_PORT}`);
+      console.log(`🔗 Local HTTP endpoint: http://localhost:${HTTP_PORT}/interactions`);
+    });
 
-const server = app.listen(PORT, '0.0.0.0', (error) => {
-  if (error) {
-    console.error('❌ Failed to start HTTP server:', error);
+    // Start HTTPS server (for Discord)
+    const httpsOptions = {
+      key: fs.readFileSync('./certs/server.key'),
+      cert: fs.readFileSync('./certs/server.crt')
+    };
+
+    https.createServer(httpsOptions, app).listen(HTTPS_PORT, '0.0.0.0', () => {
+      console.log(`🔒 HTTPS server running on port ${HTTPS_PORT}`);
+      console.log(`🔗 Public HTTPS endpoint: https://${publicIP}:${HTTPS_PORT}/interactions`);
+      console.log(`📋 Set this URL in Discord Developer Portal: https://${publicIP}:${HTTPS_PORT}/interactions`);
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to start servers:', error);
     process.exit(1);
-  } else {
-    console.log(`🌐 HTTP server running on port ${PORT}`);
-    console.log(`🔗 Local endpoint: http://localhost:${PORT}/interactions`);
   }
-});
-
-server.on('error', (error) => {
-  console.error('❌ HTTP server error:', error);
-  if (error.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use`);
-  }
-  process.exit(1);
-});
+}
 
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} is online and tracking blood levels!`);
@@ -218,6 +257,9 @@ process.on('unhandledRejection', error => {
   console.error('Unhandled promise rejection:', error);
 });
 
+// Start everything
+console.log('🔐 Creating SSL certificate and starting servers...');
+startServers();
+
 console.log('🔐 Logging into Discord...');
-// Login to Discord (after HTTP server is started)
 client.login(process.env.DISCORD_BOT_TOKEN);
