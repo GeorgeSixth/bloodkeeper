@@ -66,11 +66,11 @@ export class BloodTracker {
           } else if (row.count === 0) {
             this.db.run(
               "INSERT INTO blood_level (level, last_reset) VALUES (?, ?)",
-              [100, new Date().toISOString()],
+              [200, new Date().toISOString()],
               (err) => {
                 if (err) reject(err);
                 else {
-                  console.log('🩸 Initialized blood level to 100');
+                  console.log('🩸 Initialized blood level to 200');
                   resolve();
                 }
               }
@@ -93,7 +93,7 @@ export class BloodTracker {
         "SELECT level FROM blood_level ORDER BY id DESC LIMIT 1",
         (err, row) => {
           if (err) reject(err);
-          else resolve(row ? row.level : 100);
+          else resolve(row ? row.level : 200);
         }
       );
     });
@@ -156,7 +156,7 @@ export class BloodTracker {
     const monthsDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + (now.getMonth() - lastReset.getMonth());
     
     if (monthsDiff >= 1) {
-      await this.setBloodLevel(100); // Reset to default
+      await this.setBloodLevel(200);
       await this.setLastReset(now);
       console.log('🗓️ Monthly blood reset completed');
       return true;

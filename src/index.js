@@ -78,7 +78,7 @@ client.on('messageCreate', async (message) => {
     response += `**New city blood level**: ${newBloodLevel}`;
     
     if (wasReset) {
-      response += `\n✨ **Monthly reset occurred** - Blood level was restored to 100.`;
+      response += `\n✨ **Monthly reset occurred** - Blood level was restored to 200.`;
     }
     
     if (newBloodLevel === 0) {
@@ -91,33 +91,46 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  console.log(`🔍 Interaction received: ${interaction.type}, isChatInputCommand: ${interaction.isChatInputCommand()}`);
+  console.log(`🔍 RAW INTERACTION: Type: ${interaction.type}, CommandName: ${interaction.commandName || 'none'}`);
+  console.log(`🔍 Guild: ${interaction.guild?.name || 'DM'}, Channel: ${interaction.channel?.name || 'unknown'}`);
+  console.log(`🔍 User: ${interaction.user.tag}`);
   
-  if (!interaction.isChatInputCommand()) return;
+  if (!interaction.isChatInputCommand()) {
+    console.log(`❌ Not a chat input command, skipping`);
+    return;
+  }
 
   const { commandName } = interaction;
-  console.log(`📥 Received command: /${commandName}`);
+  console.log(`📥 Processing command: /${commandName}`);
 
   try {
     if (commandName === 'ping') {
+      console.log('🏓 Executing ping...');
       await interaction.reply('Pong! 🏓');
+      console.log('✅ Ping completed');
     } else if (commandName === 'bloodlevel') {
+      console.log('🩸 Executing bloodlevel...');
       const currentLevel = await bloodTracker.getCurrentBloodLevel();
       await interaction.reply(`🩸 **City Blood Level**: ${currentLevel}`);
+      console.log(`✅ Bloodlevel completed: ${currentLevel}`);
     } else if (commandName === 'setblood') {
-      // Check if user has admin permissions
+      console.log('🔧 Executing setblood...');
       if (!interaction.member.permissions.has('Administrator')) {
         await interaction.reply({ content: '❌ You need administrator permissions to use this command.', ephemeral: true });
+        console.log('❌ Setblood denied - no admin permissions');
         return;
       }
       
       const amount = interaction.options.getInteger('amount');
       await bloodTracker.setBloodLevel(amount);
       await interaction.reply(`🩸 Blood level set to ${amount}`);
+      console.log(`✅ Setblood completed: ${amount}`);
     } else if (commandName === 'bloodhistory') {
+      console.log('📊 Executing bloodhistory...');
       const history = await bloodTracker.getBloodHistory(10);
       if (history.length === 0) {
         await interaction.reply('📊 No blood consumption history found.');
+        console.log('📊 Bloodhistory completed - no history');
         return;
       }
       
@@ -128,16 +141,22 @@ client.on('interactionCreate', async (interaction) => {
       });
       
       await interaction.reply(response);
+      console.log('✅ Bloodhistory completed');
+    } else {
+      console.log(`❓ Unknown command: ${commandName}`);
+      await interaction.reply({ content: '❌ Unknown command', ephemeral: true });
     }
 
   } catch (error) {
-    console.error('Error handling interaction:', error);
-    const errorMessage = 'There was an error while executing this command!';
-    
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: errorMessage, ephemeral: true });
-    } else {
-      await interaction.reply({ content: errorMessage, ephemeral: true });
+    console.error('❌ ERROR in interaction handler:', error);
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+      } else {
+        await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+      }
+    } catch (followUpError) {
+      console.error('❌ Error sending error message:', followUpError);
     }
   }
 });
@@ -152,7 +171,7 @@ cron.schedule('0 0 1 * *', async () => {
     // Optionally notify in the channel
     const channel = client.channels.cache.get(process.env.BLOOD_CHANNEL_ID);
     if (channel) {
-      await channel.send('🗓️ **Monthly Reset**: City blood level has been restored to 100!');
+      await channel.send('🗓️ **Monthly Reset**: City blood level has been restored to 200!');
     }
   }
 });
