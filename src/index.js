@@ -25,17 +25,7 @@ commands.forEach(command => {
 });
 
 client.once('ready', async () => {
-  console.log(`✅ ${client.user.tag} is online and tracking blood levels!`);
-  console.log(`🤖 Bot ID: ${client.user.id}`);
-  console.log(`📱 Application ID from env: ${process.env.DISCORD_APPLICATION_ID}`);
-  
-  // Check if IDs match
-  if (client.user.id !== process.env.DISCORD_APPLICATION_ID) {
-    console.error('❌ MISMATCH: Bot ID does not match Application ID!');
-    console.error('This means your bot token belongs to a different application.');
-  }
-  
-  // Initialize database...
+  console.log(`✅ ${client.user.tag} is online and tracking blood levels!`);  
   try {
     await bloodTracker.initializeDatabase();
     console.log(`📊 Current blood level: ${await bloodTracker.getCurrentBloodLevel()}`);
@@ -89,46 +79,36 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  console.log(`🔍 RAW INTERACTION: Type: ${interaction.type}, CommandName: ${interaction.commandName || 'none'}`);
-  console.log(`🔍 Guild: ${interaction.guild?.name || 'DM'}, Channel: ${interaction.channel?.name || 'unknown'}`);
-  console.log(`🔍 User: ${interaction.user.tag}`);
-  
-  if (!interaction.isChatInputCommand()) {
-    console.log(`❌ Not a chat input command, skipping`);
-    return;
-  }
+  if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
-  console.log(`📥 Processing command: /${commandName}`);
 
   try {
     if (commandName === 'ping') {
-      console.log('🏓 Executing ping...');
       await interaction.reply('Pong! 🏓');
-      console.log('✅ Ping completed');
-    } else if (commandName === 'bloodlevel') {
-      console.log('🩸 Executing bloodlevel...');
+    }
+
+    if (commandName === 'bloodlevel') {
       const currentLevel = await bloodTracker.getCurrentBloodLevel();
       await interaction.reply(`🩸 **City Blood Level**: ${currentLevel}`);
-      console.log(`✅ Bloodlevel completed: ${currentLevel}`);
-    } else if (commandName === 'setblood') {
-      console.log('🔧 Executing setblood...');
+    }
+
+    if (commandName === 'setblood') {
+      // Check if user has admin permissions
       if (!interaction.member.permissions.has('Administrator')) {
         await interaction.reply({ content: '❌ You need administrator permissions to use this command.', ephemeral: true });
-        console.log('❌ Setblood denied - no admin permissions');
         return;
       }
       
       const amount = interaction.options.getInteger('amount');
       await bloodTracker.setBloodLevel(amount);
       await interaction.reply(`🩸 Blood level set to ${amount}`);
-      console.log(`✅ Setblood completed: ${amount}`);
-    } else if (commandName === 'bloodhistory') {
-      console.log('📊 Executing bloodhistory...');
+    }
+
+    if (commandName === 'bloodhistory') {
       const history = await bloodTracker.getBloodHistory(10);
       if (history.length === 0) {
         await interaction.reply('📊 No blood consumption history found.');
-        console.log('📊 Bloodhistory completed - no history');
         return;
       }
       
@@ -139,22 +119,16 @@ client.on('interactionCreate', async (interaction) => {
       });
       
       await interaction.reply(response);
-      console.log('✅ Bloodhistory completed');
-    } else {
-      console.log(`❓ Unknown command: ${commandName}`);
-      await interaction.reply({ content: '❌ Unknown command', ephemeral: true });
     }
 
   } catch (error) {
-    console.error('❌ ERROR in interaction handler:', error);
-    try {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
-      } else {
-        await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-      }
-    } catch (followUpError) {
-      console.error('❌ Error sending error message:', followUpError);
+    console.error('Error handling interaction:', error);
+    const errorMessage = 'There was an error while executing this command!';
+    
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: errorMessage, ephemeral: true });
+    } else {
+      await interaction.reply({ content: errorMessage, ephemeral: true });
     }
   }
 });

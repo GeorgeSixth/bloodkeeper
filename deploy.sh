@@ -13,6 +13,12 @@ if git diff HEAD~1 --name-only | grep -q "package.json"; then
     npm install
 fi
 
+# Install localtunnel globally if not installed
+if ! command -v lt &> /dev/null; then
+    echo "🌐 Installing LocalTunnel..."
+    npm install -g localtunnel
+fi
+
 # Register commands if commands.js changed
 if git diff HEAD~1 --name-only | grep -q "src/commands.js"; then
     echo "🔧 Registering slash commands..."
@@ -32,7 +38,30 @@ else
     pm2 save
 fi
 
+# Start or restart LocalTunnel
+echo "🌐 Setting up HTTPS tunnel..."
+if pm2 list | grep -q "localtunnel"; then
+    echo "🔄 Restarting tunnel..."
+    pm2 restart localtunnel
+else
+    echo "🌐 Starting new tunnel..."
+    pm2 start --name localtunnel "lt --port 3000 --subdomain bloodkeeper"
+    pm2 save
+fi
+
+# Wait a moment for tunnel to establish
+sleep 3
+
+# Show the tunnel URL
+echo ""
+echo "🎉 Deployment complete!"
+echo "🔗 Your HTTPS endpoint: https://bloodkeeper.loca.lt"
+echo "📋 Set this URL in Discord Developer Portal as interactions endpoint:"
+echo "   https://bloodkeeper.loca.lt/interactions"
+echo ""
+
 # Show status
-echo "✅ Deployment complete!"
 pm2 status
-pm2 logs bloodkeeper-bot --lines 10
+echo ""
+echo "📊 Recent logs:"
+pm2 logs bloodkeeper-bot --lines 5
