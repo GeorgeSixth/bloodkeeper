@@ -233,34 +233,33 @@ export class BloodTracker {
     }
 
     // Also check embeds if the bot uses them
-    if (message.embeds && message.embeds.length > 0) {
-      for (const embed of message.embeds) {
-        // Check title first -- Tzimisce puts result here e.g. "3 successes" or "Failure"
-        if (embed.title) {
-          const titleSuccesses = this.parseTzimisceRoll(embed.title);
-          successes = Math.max(successes, titleSuccesses);
-        }
-        
-        if (embed.description) {
-          const embedSuccesses = this.parseTzimisceRoll(embed.description);
-          successes = Math.max(successes, embedSuccesses);
-        }
-      
-        if (embed.fields) {
-          for (const field of embed.fields) {
-            const fieldSuccesses = this.parseTzimisceRoll(field.value);
-            successes = Math.max(successes, fieldSuccesses);
-          }
+  if (message.embeds && message.embeds.length > 0) {
+    for (const embed of message.embeds) {
+      // Check title first -- Tzimisce puts result here e.g. "3 successes" or "Failure"
+      if (embed.title) {
+        const titleSuccesses = this.parseTzimisceRoll(embed.title);
+        successes = Math.max(successes, titleSuccesses);
+      }
+      if (embed.description) {
+        const embedSuccesses = this.parseTzimisceRoll(embed.description);
+        successes = Math.max(successes, embedSuccesses);
+      }
+      if (embed.fields) {
+        for (const field of embed.fields) {
+          const fieldSuccesses = this.parseTzimisceRoll(field.value);
+          successes = Math.max(successes, fieldSuccesses);
         }
       }
     }
+  }
     if (successes > 0) {
       const newBloodLevel = await this.decreaseBloodLevel(successes);
-      
+
       // Add to history
       await this.addBloodHistory(successes, newBloodLevel, message.content);
+
       console.log(`🩸 Blood consumed: ${successes} successes, new level: ${newBloodLevel}`);
-      
+
       return {
         successes,
         newBloodLevel,
