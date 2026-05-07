@@ -32,13 +32,18 @@ commands.forEach(command => {
 // Function to verify Discord signature
 function verifyDiscordSignature(rawBody, signature, timestamp, publicKey) {
   try {
+    const keyBuffer = Buffer.from(publicKey, 'hex');
+    const derPrefix = Buffer.from('302a300506032b6570032100', 'hex');
+    const derKey = Buffer.concat([derPrefix, keyBuffer]);
+    const publicKeyObj = crypto.createPublicKey({
+      key: derKey,
+      format: 'der',
+      type: 'spki',
+    });
     const isVerified = crypto.verify(
-      'ed25519',
+      null,
       Buffer.from(timestamp + rawBody),
-      {
-        key: `-----BEGIN PUBLIC KEY-----\n${Buffer.from(publicKey, 'hex').toString('base64')}\n-----END PUBLIC KEY-----`,
-        format: 'pem',
-      },
+      publicKeyObj,
       Buffer.from(signature, 'hex')
     );
     return isVerified;
@@ -58,30 +63,30 @@ app.use('/interactions', express.raw({type: 'application/json'}), (req, res, nex
   const signature = req.get('X-Signature-Ed25519');
   const timestamp = req.get('X-Signature-Timestamp');
   const rawBody = req.body.toString('utf8');
-  
+
   // Verify Discord signature
   if (!process.env.DISCORD_PUBLIC_KEY) {
     console.error('❌ DISCORD_PUBLIC_KEY not set in .env!');
     return res.status(500).send('Server misconfigured');
   }
-  
+
   if (!signature || !timestamp) {
     console.error('❌ Missing signature headers');
     return res.status(401).send('Unauthorized');
   }
-  
+
   const isValid = verifyDiscordSignature(
     rawBody,
     signature,
     timestamp,
     process.env.DISCORD_PUBLIC_KEY
   );
-  
+
   if (!isValid) {
     console.error('❌ Invalid signature');
     return res.status(401).send('Invalid signature');
   }
-  
+
   // Parse JSON body
   try {
     req.body = JSON.parse(rawBody);
@@ -105,7 +110,7 @@ app.get('/', (req, res) => {
 app.post('/interactions', async (req, res) => {
   try {
     const { type, data, member, guild_id } = req.body;
-    
+
     console.log(`📥 Interaction - Type: ${type}, Command: ${data?.name || 'none'}`);
 
     // Respond to Discord's ping (type 1)
@@ -120,14 +125,14 @@ app.post('/interactions', async (req, res) => {
       console.log(`⚡ Processing command: /${commandName}`);
 
       // Check admin permissions for restricted commands
-      const isAdmin = member?.permissions && 
+      const isAdmin = member?.permissions &&
                      (BigInt(member.permissions) & BigInt(0x8)) === BigInt(0x8);
 
       switch(commandName) {
         case 'ping':
           return res.json({
             type: 4,
-            data: { 
+            data: {
               content: '🏓 Pong! Bot is responding successfully!',
               flags: 0
             }
@@ -136,10 +141,10 @@ app.post('/interactions', async (req, res) => {
         case 'bloodlevel':
           const currentLevel = await bloodTracker.getCurrentBloodLevel();
           const percentage = Math.round((currentLevel / 200) * 100);
-          
+
           return res.json({
             type: 4,
-            data: { 
+            data: {
               content: `🩸 **Current City Blood Level**: ${currentLevel}/200 (${percentage}%)`,
               embeds: [{
                 color: currentLevel > 100 ? 0x00ff00 : currentLevel > 50 ? 0xffff00 : 0xff0000,
@@ -166,7 +171,7 @@ app.post('/interactions', async (req, res) => {
           if (!isAdmin) {
             return res.json({
               type: 4,
-              data: { 
+              data: {
                 content: '❌ You need administrator permissions to use this command.',
                 flags: 64 // Ephemeral
               }
@@ -178,7 +183,7 @@ app.post('/interactions', async (req, res) => {
             await bloodTracker.setBloodLevel(amount);
             return res.json({
               type: 4,
-              data: { 
+              data: {
                 content: `✅ Blood level set to **${amount}**`,
                 flags: 0
               }
@@ -186,7 +191,7 @@ app.post('/interactions', async (req, res) => {
           } else {
             return res.json({
               type: 4,
-              data: { 
+              data: {
                 content: '❌ Please provide a value between 0 and 300.',
                 flags: 64
               }
@@ -195,27 +200,27 @@ app.post('/interactions', async (req, res) => {
 
         case 'bloodhistory':
           const history = await bloodTracker.getBloodHistory(10);
-          
+
           if (history.length === 0) {
             return res.json({
               type: 4,
               data: { content: '📊 No blood consumption history yet.' }
             });
           }
-          
+
           const historyText = history.slice(0, 5).map(entry => {
-            const date = new Date(entry.timestamp).toLocaleString('en-US', { 
-              month: 'short', 
-              day: 'numeric', 
-              hour: '2-digit', 
-              minute: '2-digit' 
+            const date = new Date(entry.timestamp).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
             });
             return `• ${date}: Consumed **${entry.successes}** → Level **${entry.blood_level}**`;
           }).join('\n');
-          
+
           return res.json({
             type: 4,
-            data: { 
+            data: {
               embeds: [{
                 title: '📊 Recent Blood Consumption',
                 description: historyText,
@@ -230,7 +235,7 @@ app.post('/interactions', async (req, res) => {
         default:
           return res.json({
             type: 4,
-            data: { 
+            data: {
               content: '❌ Unknown command',
               flags: 64
             }
@@ -241,10 +246,10 @@ app.post('/interactions', async (req, res) => {
     // Unknown interaction type
     console.log(`❓ Unknown interaction type: ${type}`);
     return res.status(400).json({ error: 'Unknown interaction type' });
-    
+
   } catch (error) {
     console.error('❌ Error handling interaction:', error);
-    
+
     // Try to send a user-friendly error response
     try {
       return res.json({
@@ -271,7 +276,7 @@ app.listen(PORT, '0.0.0.0', () => {
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} is online!`);
   console.log(`🤖 Bot ID: ${client.user.id}`);
-  
+
   // Initialize database
   try {
     await bloodTracker.initializeDatabase();
@@ -286,18 +291,21 @@ client.once('ready', async () => {
 
 // Message handler for Tzimisce bot
 client.on('messageCreate', async (message) => {
+  console.log(`📨 Message from: ${message.author.id} in channel: ${message.channel.id}`);
   if (message.author.id === client.user.id) return;
-  
+
   if (message.author.id !== process.env.TZIMISCE_BOT_ID) return;
   if (message.channel.id !== process.env.BLOOD_CHANNEL_ID) return;
-  
+
   console.log(`📥 Processing message from Tzimisce`);
-  
+  console.log(`📝 Content: ${message.content}`);
+  console.log(`📝 Embeds: ${JSON.stringify(message.embeds)}`);
   const result = await bloodTracker.processRollMessage({
     author: { id: message.author.id },
     channel_id: message.channel.id,
     content: message.content || '',
     embeds: message.embeds.map(embed => ({
+      title: embed.title,
       description: embed.description,
       fields: embed.fields?.map(field => ({
         name: field.name,
@@ -308,18 +316,18 @@ client.on('messageCreate', async (message) => {
 
   if (result) {
     const { successes, newBloodLevel, wasReset } = result;
-    
+
     let response = `🩸 **Blood consumed!** ${successes} successes detected.\n`;
     response += `**New city blood level**: ${newBloodLevel}/200`;
-    
+
     if (wasReset) {
       response += `\n✨ **Monthly reset** - Blood level restored to 200!`;
     }
-    
+
     if (newBloodLevel <= 20) {
       response += `\n🚨 **WARNING**: City blood level is critically low!`;
     }
-    
+
     await message.channel.send(response);
   }
 });
