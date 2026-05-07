@@ -16,11 +16,11 @@ export class BloodTracker {
     const path = await import('path');
     const fs = await import('fs');
     const dataDir = path.dirname(this.dbPath);
-    
+
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
-    
+
     return new Promise((resolve, reject) => {
       this.db = new sqlite3.Database(this.dbPath, (err) => {
         if (err) {
@@ -58,7 +58,7 @@ export class BloodTracker {
       this.db.serialize(() => {
         this.db.run(createBloodLevelTable);
         this.db.run(createBloodHistoryTable);
-        
+
         // Initialize with default blood level if not exists
         this.db.get("SELECT COUNT(*) as count FROM blood_level", (err, row) => {
           if (err) {
@@ -87,7 +87,7 @@ export class BloodTracker {
     if (!this.db) {
       throw new Error('Database not initialized. Call initializeDatabase() first.');
     }
-    
+
     return new Promise((resolve, reject) => {
       this.db.get(
         "SELECT level FROM blood_level ORDER BY id DESC LIMIT 1",
@@ -103,7 +103,7 @@ export class BloodTracker {
     if (!this.db) {
       throw new Error('Database not initialized. Call initializeDatabase() first.');
     }
-    
+
     return new Promise((resolve, reject) => {
       this.db.run(
         "INSERT INTO blood_level (level, last_reset) VALUES (?, ?)",
@@ -151,10 +151,10 @@ export class BloodTracker {
   async checkAndResetMonthly() {
     const lastReset = await this.getLastReset();
     const now = new Date();
-    
+
     // Check if a month has passed
     const monthsDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + (now.getMonth() - lastReset.getMonth());
-    
+
     if (monthsDiff >= 1) {
       await this.setBloodLevel(200);
       await this.setLastReset(now);
@@ -191,6 +191,7 @@ export class BloodTracker {
   }
 
   parseTzimisceRoll(messageContent) {
+    console.log(`🔍 Parsing: "${messageContent}"`);
     // Parse Tzimisce bot roll results
     // Common patterns for success counting in dice bots:
     const successPatterns = [
@@ -213,7 +214,7 @@ export class BloodTracker {
   }
 
   shouldProcessMessage(message) {
-    return message.author.id === TZIMISCE_BOT_ID && 
+    return message.author.id === TZIMISCE_BOT_ID &&
            message.channel_id === BLOOD_CHANNEL_ID;
   }
 
@@ -226,36 +227,40 @@ export class BloodTracker {
     const wasReset = await this.checkAndResetMonthly();
 
     let successes = 0;
-    
+
     // Parse message content
     if (message.content) {
       successes = this.parseTzimisceRoll(message.content);
     }
 
     // Also check embeds if the bot uses them
-    if (message.embeds && message.embeds.length > 0) {
-      for (const embed of message.embeds) {
-        if (embed.description) {
-          const embedSuccesses = this.parseTzimisceRoll(embed.description);
-          successes = Math.max(successes, embedSuccesses);
-        }
-        if (embed.fields) {
-          for (const field of embed.fields) {
-            const fieldSuccesses = this.parseTzimisceRoll(field.value);
-            successes = Math.max(successes, fieldSuccesses);
-          }
+  if (message.embeds && message.embeds.length > 0) {
+    for (const embed of message.embeds) {
+      // Check title first -- Tzimisce puts result here e.g. "3 successes" or "Failure"
+      if (embed.title) {
+        const titleSuccesses = this.parseTzimisceRoll(embed.title);
+        successes = Math.max(successes, titleSuccesses);
+      }
+      if (embed.description) {
+        const embedSuccesses = this.parseTzimisceRoll(embed.description);
+        successes = Math.max(successes, embedSuccesses);
+      }
+      if (embed.fields) {
+        for (const field of embed.fields) {
+          const fieldSuccesses = this.parseTzimisceRoll(field.value);
+          successes = Math.max(successes, fieldSuccesses);
         }
       }
     }
-
+  }
     if (successes > 0) {
       const newBloodLevel = await this.decreaseBloodLevel(successes);
-      
+
       // Add to history
       await this.addBloodHistory(successes, newBloodLevel, message.content);
-      
+
       console.log(`🩸 Blood consumed: ${successes} successes, new level: ${newBloodLevel}`);
-      
+
       return {
         successes,
         newBloodLevel,
