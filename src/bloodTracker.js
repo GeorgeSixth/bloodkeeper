@@ -1,3 +1,4 @@
+
 import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
 
@@ -202,14 +203,13 @@ export class BloodTracker {
       /success.*?(\d+)/i,
       /(\d+).*?success/i,
     ];
-
     for (const pattern of successPatterns) {
       const match = messageContent.match(pattern);
       if (match) {
         return parseInt(match[1]);
       }
     }
-
+    
     return 0;
   }
 
@@ -225,7 +225,6 @@ export class BloodTracker {
 
     // Check for monthly reset first
     const wasReset = await this.checkAndResetMonthly();
-
     let successes = 0;
 
     // Parse message content
@@ -267,7 +266,6 @@ export class BloodTracker {
         wasReset
       };
     }
-
     return null;
   }
 }
